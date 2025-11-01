@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Portals of Consciousness",
+  "description": "",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
