@@ -8,7 +8,7 @@ interface RiskCalculatorProps {
 }
 
 const RiskCalculator: React.FC<RiskCalculatorProps> = ({ onExit }) => {
-    const { switchAgent } = useStore();
+    const { switchAgent, goBackToAgentRoom } = useStore();
     const [scenario, setScenario] = useState('');
     const [analysis, setAnalysis] = useState('');
     
@@ -28,7 +28,16 @@ const RiskCalculator: React.FC<RiskCalculatorProps> = ({ onExit }) => {
                     <Calculator className="w-8 h-8 text-blue-400" />
                     <h1 className="text-xl font-bold text-gray-200">Calculadora de Risco Lógico</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-6 text-center">
                 <div className="max-w-3xl mx-auto">

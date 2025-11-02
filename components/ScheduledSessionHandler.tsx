@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LiveServerMessage } from '@google/genai';
 import { createSchedulingSession } from '../services/geminiSchedulingService.ts';
 import { decode, decodeAudioData, encode } from '../utils/audioUtils.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 import { X, Phone, Loader2, Volume2, Mic, MicOff } from 'lucide-react';
 import { Schedule } from '../types.ts';
 import { useStore } from '../store.ts';
@@ -113,7 +114,12 @@ const ScheduledSessionHandler: React.FC<ScheduledSessionHandlerProps> = ({ sched
                     streamRefs.current.processor.connect(inputCtx.destination);
                 },
                 onmessage,
-                onerror: (e: ErrorEvent) => { setError('A conexão falhou. Por favor, tente novamente.'); setStatus('error'); cleanup(); },
+                onerror: (e: ErrorEvent) => { 
+                    const friendlyError = getFriendlyErrorMessage(e, "A conexão falhou. Por favor, tente novamente.");
+                    setError(friendlyError); 
+                    setStatus('error'); 
+                    cleanup(); 
+                },
                 onclose: () => { if (status !== 'transitioning') { onExit(); } },
             });
 
@@ -129,7 +135,7 @@ const ScheduledSessionHandler: React.FC<ScheduledSessionHandlerProps> = ({ sched
                     message = 'Acesso ao microfone negado pelo sistema. Verifique se o navegador tem permissão para usar o microfone nas configurações de privacidade do seu sistema operacional (Windows/macOS).';
                 }
             } else {
-                message = 'Ocorreu um erro inesperado ao tentar acessar o microfone. Verifique as permissões do navegador e do sistema.';
+                message = getFriendlyErrorMessage(err, 'Ocorreu um erro inesperado ao tentar acessar o microfone.');
             }
             setError(message);
             setStatus('error');

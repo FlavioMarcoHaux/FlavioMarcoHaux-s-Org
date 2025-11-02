@@ -3,13 +3,14 @@ import { analyzeJournalEntry } from '../services/geminiJournalService.ts';
 import { JournalFeedback } from '../types.ts';
 import { X, BookHeart, Loader2, Send } from 'lucide-react';
 import { useStore } from '../store.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 
 interface TherapeuticJournalProps {
     onExit: () => void;
 }
 
 const TherapeuticJournal: React.FC<TherapeuticJournalProps> = ({ onExit }) => {
-    const { toolStates, setToolState } = useStore();
+    const { toolStates, setToolState, goBackToAgentRoom } = useStore();
     const [isLoading, setIsLoading] = useState(false);
     
     const journalState = toolStates.therapeuticJournal;
@@ -30,7 +31,7 @@ const TherapeuticJournal: React.FC<TherapeuticJournalProps> = ({ onExit }) => {
             const analysisResult = await analyzeJournalEntry(entry);
             setToolState('therapeuticJournal', { entry, feedback: analysisResult, error: null });
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido durante a análise.';
+            const errorMsg = getFriendlyErrorMessage(err, 'Ocorreu um erro desconhecido durante a análise.');
             setToolState('therapeuticJournal', { entry, feedback: null, error: errorMsg });
         } finally {
             setIsLoading(false);
@@ -49,9 +50,18 @@ const TherapeuticJournal: React.FC<TherapeuticJournalProps> = ({ onExit }) => {
                     <BookHeart className="w-8 h-8 text-indigo-400" />
                     <h1 className="text-xl font-bold text-gray-200">Diário Terapêutico</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Therapeutic Journal">
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Therapeutic Journal">
+                        <X size={24} />
+                    </button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-6 no-scrollbar">
                 {isLoading && (

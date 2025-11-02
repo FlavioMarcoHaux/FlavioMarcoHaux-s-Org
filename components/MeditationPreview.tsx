@@ -1,16 +1,18 @@
 import React from 'react';
 import { Meditation } from '../types.ts';
-import { ArrowLeft, Play } from 'lucide-react';
+import { ArrowLeft, Play, X } from 'lucide-react';
 
 interface MeditationPreviewProps {
   meditation: Meditation;
   backgroundImage: string;
   onStart: () => void;
   onGoBack: () => void;
+  onBack: () => void;
+  onExit: () => void;
   isLoading: boolean;
 }
 
-const MeditationPreview: React.FC<MeditationPreviewProps> = ({ meditation, backgroundImage, onStart, onGoBack, isLoading }) => {
+const MeditationPreview: React.FC<MeditationPreviewProps> = ({ meditation, backgroundImage, onStart, onGoBack, onBack, onExit, isLoading }) => {
   return (
     <div className="relative h-full w-full flex flex-col p-6">
       <img src={backgroundImage} alt="Background" className="absolute inset-0 w-full h-full object-cover -z-10 opacity-20" />
@@ -20,11 +22,21 @@ const MeditationPreview: React.FC<MeditationPreviewProps> = ({ meditation, backg
          <button
           onClick={onGoBack}
           className="bg-gray-700/50 hover:bg-gray-600/50 text-white p-2 rounded-full transition-colors disabled:opacity-50"
-          aria-label="Voltar"
+          aria-label="Voltar para configuração"
           disabled={isLoading}
         >
           <ArrowLeft size={24} />
         </button>
+        <div className="flex items-center gap-4">
+            <button
+                onClick={onBack}
+                className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400 bg-black/20"
+                aria-label="Voltar para o Mentor"
+            >
+                Voltar
+            </button>
+            <button onClick={onExit} className="bg-gray-700/50 hover:bg-gray-600/50 text-white p-2 rounded-full transition-colors"><X size={24} /></button>
+        </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center text-center">

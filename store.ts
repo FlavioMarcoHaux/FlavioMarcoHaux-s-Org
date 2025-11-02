@@ -15,6 +15,10 @@ import {
 } from './types';
 import { generateAgentResponse } from './services/geminiService.ts';
 import { createDoshaChat, startDoshaConversation, continueDoshaConversation } from './services/geminiDoshaService.ts';
+import { createRoutineAlignerChat, startRoutineAlignerConversation, continueRoutineAlignerConversation } from './services/geminiRoutineAlignerService.ts';
+import { AGENTS } from './constants.tsx';
+import { getFriendlyErrorMessage } from './utils/errorUtils.ts';
+import { useAistudioKey } from './hooks/useAistudioKey.ts';
 
 // Helper to calculate UCS
 const calculateUcs = (usv: UserStateVector): number => {
@@ -31,6 +35,7 @@ const getRecommendation = (usv: UserStateVector): AgentId => {
         { key: AgentId.HEALTH, value: usv.physical },
         { key: AgentId.EMOTIONAL_FINANCE, value: 100 - usv.emotional }, // Invert emotional for recommendation
         { key: AgentId.INVESTMENTS, value: usv.financial },
+        // FIX: Corrected a reference error by changing `emotional` to `usv.emotional`.
         { key: AgentId.SELF_KNOWLEDGE, value: (usv.spiritual + (100 - usv.emotional)) / 2 } // Self-knowledge is a mix
     ];
     // Find the dimension with the lowest score
@@ -38,17 +43,31 @@ const getRecommendation = (usv: UserStateVector): AgentId => {
     return lowest.key;
 };
 
+// Centralized error handler to check for API key issues
+const handleApiError = (error: any, defaultMessage: string, addToast: AppState['addToast']): string => {
+    const friendlyMessage = getFriendlyErrorMessage(error, defaultMessage);
+    if (friendlyMessage.includes("API") && friendlyMessage.includes("inválida")) {
+        // This is a key error. Reset the key state to force re-selection.
+        useAistudioKey.getState().resetKey();
+    }
+    addToast(friendlyMessage, 'error');
+    return friendlyMessage;
+};
+
+
 interface AppState {
     usv: UserStateVector;
     ucs: number;
     recommendation: AgentId | null;
     activeView: View;
     currentSession: Session | null;
+    lastAgentContext: AgentId | null;
     chatHistories: Record<AgentId, Message[]>;
     isLoadingMessage: boolean;
     toolStates: ToolStates;
     toasts: ToastMessage[];
     doshaChat: Chat | null;
+    routineAlignerChat: Chat | null;
     isOnboardingVisible: boolean;
     schedules: Schedule[];
 
@@ -57,15 +76,20 @@ interface AppState {
     startSession: (session: Session) => void;
     endSession: () => void;
     switchAgent: (agentId: AgentId) => void;
+    addInitialMessage: (agentId: AgentId) => void;
     handleSendMessage: (agentId: AgentId, text: string) => Promise<void>;
     handleDoshaSendMessage: (text: string) => Promise<void>;
     initDoshaChat: () => Promise<void>;
+    handleRoutineAlignerSendMessage: (text: string) => Promise<void>;
+    initRoutineAlignerChat: () => Promise<void>;
     setToolState: <T extends keyof ToolStates>(toolId: T, state: ToolStates[T]) => void;
     addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
     removeToast: (id: string) => void;
     closeOnboarding: () => void;
     addSchedule: (schedule: Omit<Schedule, 'id' | 'status'>) => void;
     updateScheduleStatus: (scheduleId: string, status: Schedule['status']) => void;
+    updateUsvDimensions: (updates: Partial<Pick<UserStateVector, 'physical' | 'emotional'>>) => void;
+    goBackToAgentRoom: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -77,6 +101,7 @@ export const useStore = create<AppState>()(
             recommendation: AgentId.EMOTIONAL_FINANCE,
             activeView: 'dashboard',
             currentSession: null,
+            lastAgentContext: null,
             chatHistories: {
                 [AgentId.COHERENCE]: [],
                 [AgentId.SELF_KNOWLEDGE]: [],
@@ -88,9 +113,12 @@ export const useStore = create<AppState>()(
             toolStates: {
                 therapeuticJournal: { entry: '', feedback: null, error: null },
                 doshaDiagnosis: { messages: [], isFinished: false, error: null },
+                routineAligner: { messages: [], isFinished: false, error: null },
+                doshaResult: null,
             },
             toasts: [],
             doshaChat: null,
+            routineAlignerChat: null,
             isOnboardingVisible: true,
             schedules: [],
 
@@ -98,15 +126,46 @@ export const useStore = create<AppState>()(
             setView: (view) => set({ activeView: view }),
 
             startSession: (session) => {
-                if (session.type === 'dosha_diagnosis' && !get().doshaChat) {
+                // For interactive chat tools, always re-initialize to get fresh context
+                if (session.type === 'dosha_diagnosis') {
                     get().initDoshaChat();
                 }
-                set({ currentSession: session });
+                if (session.type === 'routine_aligner') {
+                    get().initRoutineAlignerChat();
+                }
+
+                if (session.type === 'agent') {
+                    set({ currentSession: session, lastAgentContext: session.id });
+                    get().addInitialMessage(session.id);
+                } else {
+                    set({ currentSession: session });
+                }
             },
 
             endSession: () => set({ currentSession: null }),
             
-            switchAgent: (agentId) => set({ currentSession: { type: 'agent', id: agentId } }),
+            switchAgent: (agentId) => {
+                set({ 
+                    currentSession: { type: 'agent', id: agentId },
+                    lastAgentContext: agentId,
+                });
+                get().addInitialMessage(agentId);
+            },
+
+            addInitialMessage: (agentId) => {
+                set(produce((draft: AppState) => {
+                    const agent = AGENTS[agentId];
+                    if (agent?.initialMessage && draft.chatHistories[agentId]?.length === 0) {
+                        const initialMessage: Message = {
+                            id: `agent-initial-${agentId}`,
+                            sender: 'agent',
+                            text: agent.initialMessage,
+                            timestamp: Date.now()
+                        };
+                        draft.chatHistories[agentId].push(initialMessage);
+                    }
+                }));
+            },
 
             handleSendMessage: async (agentId, text) => {
                 const userMessage: Message = { id: `user-${Date.now()}`, sender: 'user', text, timestamp: Date.now() };
@@ -128,12 +187,13 @@ export const useStore = create<AppState>()(
                     }));
 
                 } catch (error) {
-                    console.error("Error sending message:", error);
-                    const errorMessage: Message = { id: `agent-error-${Date.now()}`, sender: 'agent', text: 'Desculpe, não consegui processar sua mensagem. Tente novamente.', timestamp: Date.now() };
+                    const defaultMessage = `Desculpe, não consegui processar sua mensagem com ${AGENTS[agentId].name}.`;
+                    const errorText = handleApiError(error, defaultMessage, get().addToast);
+                    
+                    const errorMessage: Message = { id: `agent-error-${Date.now()}`, sender: 'agent', text: errorText, timestamp: Date.now() };
                     set(produce((draft: AppState) => {
                         draft.chatHistories[agentId].push(errorMessage);
                     }));
-                    get().addToast('Erro ao se comunicar com o mentor.', 'error');
                 } finally {
                     set({ isLoadingMessage: false });
                 }
@@ -156,7 +216,7 @@ export const useStore = create<AppState>()(
                         }
                     }));
                 } catch (error) {
-                    const errorMsg = error instanceof Error ? error.message : "Failed to start session.";
+                    const errorMsg = handleApiError(error, "Não foi possível iniciar o diagnóstico. Tente novamente.", get().addToast);
                     set(produce((draft: AppState) => {
                          if(draft.toolStates.doshaDiagnosis) draft.toolStates.doshaDiagnosis.error = errorMsg;
                     }));
@@ -185,15 +245,86 @@ export const useStore = create<AppState>()(
                     const agentMessage: Message = { id: `agent-${Date.now()}`, sender: 'agent', text: responseText, timestamp: Date.now() };
                     
                     set(produce((draft: AppState) => {
-                        if(draft.toolStates.doshaDiagnosis) {
-                           draft.toolStates.doshaDiagnosis.messages.push(agentMessage);
-                           draft.toolStates.doshaDiagnosis.isFinished = isFinished;
+                        const doshaDiagnosisState = draft.toolStates.doshaDiagnosis;
+                        if(doshaDiagnosisState) {
+                           doshaDiagnosisState.messages.push(agentMessage);
+                           doshaDiagnosisState.isFinished = isFinished;
+                           if (isFinished) {
+                               const doshaMatch = responseText.match(/Dissonância Dominante \(Desequilíbrio\):\s*(\w+)/i);
+                               if (doshaMatch && doshaMatch[1]) {
+                                   const dosha = doshaMatch[1] as 'Vata' | 'Pitta' | 'Kapha';
+                                   draft.toolStates.doshaResult = dosha;
+                                   get().addToast(`Diagnóstico concluído: Desequilíbrio de ${dosha} detectado.`, 'info');
+                               }
+                           }
                         }
                     }));
                 } catch (error) {
-                     const errorMsg = error instanceof Error ? error.message : "Failed to send message.";
+                     const errorMsg = handleApiError(error, "Ocorreu um erro ao processar sua resposta. Tente novamente.", get().addToast);
                      set(produce((draft: AppState) => {
                         if(draft.toolStates.doshaDiagnosis) draft.toolStates.doshaDiagnosis.error = errorMsg;
+                    }));
+                } finally {
+                     set({ isLoadingMessage: false });
+                }
+            },
+
+            initRoutineAlignerChat: async () => {
+                set(produce((draft: AppState) => {
+                    draft.isLoadingMessage = true;
+                    draft.toolStates.routineAligner = { messages: [], isFinished: false, error: null };
+                }));
+                try {
+                    const chat = createRoutineAlignerChat();
+                    const doshaResult = get().toolStates.doshaResult;
+                    const firstMessage = await startRoutineAlignerConversation(chat, doshaResult);
+                    set(produce((draft: AppState) => {
+                        draft.routineAlignerChat = chat as any;
+                        if(draft.toolStates.routineAligner) {
+                            draft.toolStates.routineAligner.messages.push({
+                                id: `agent-${Date.now()}`, sender: 'agent', text: firstMessage, timestamp: Date.now()
+                            });
+                        }
+                    }));
+                } catch (error) {
+                    const errorMsg = handleApiError(error, "Não foi possível iniciar o alinhador. Tente novamente.", get().addToast);
+                    set(produce((draft: AppState) => {
+                         if(draft.toolStates.routineAligner) draft.toolStates.routineAligner.error = errorMsg;
+                    }));
+                } finally {
+                    set({ isLoadingMessage: false });
+                }
+            },
+            
+            handleRoutineAlignerSendMessage: async (text) => {
+                const chat = get().routineAlignerChat;
+                if (!chat) return;
+
+                const userMessage: Message = { id: `user-${Date.now()}`, sender: 'user', text, timestamp: Date.now() };
+
+                set(produce((draft: AppState) => {
+                    if(draft.toolStates.routineAligner) {
+                        draft.toolStates.routineAligner.messages.push(userMessage);
+                        draft.isLoadingMessage = true;
+                        draft.toolStates.routineAligner.error = null;
+                    }
+                }));
+
+                try {
+                    const responseText = await continueRoutineAlignerConversation(chat, text);
+                    const isFinished = responseText.includes("esta rotina é um algoritmo, não uma prisão");
+                    const agentMessage: Message = { id: `agent-${Date.now()}`, sender: 'agent', text: responseText, timestamp: Date.now() };
+                    
+                    set(produce((draft: AppState) => {
+                        if(draft.toolStates.routineAligner) {
+                           draft.toolStates.routineAligner.messages.push(agentMessage);
+                           draft.toolStates.routineAligner.isFinished = isFinished;
+                        }
+                    }));
+                } catch (error) {
+                     const errorMsg = handleApiError(error, "Ocorreu um erro ao processar sua resposta. Tente novamente.", get().addToast);
+                     set(produce((draft: AppState) => {
+                        if(draft.toolStates.routineAligner) draft.toolStates.routineAligner.error = errorMsg;
                     }));
                 } finally {
                      set({ isLoadingMessage: false });
@@ -238,13 +369,34 @@ export const useStore = create<AppState>()(
                     }
                 }));
             },
+            
+            updateUsvDimensions: (updates) => {
+                set(produce((draft: AppState) => {
+                    if (updates.physical !== undefined) {
+                        draft.usv.physical = Math.max(0, Math.min(100, updates.physical));
+                    }
+                    if (updates.emotional !== undefined) {
+                        draft.usv.emotional = Math.max(0, Math.min(100, updates.emotional));
+                    }
+                }));
+            },
+
+            goBackToAgentRoom: () => {
+                const lastAgentId = get().lastAgentContext;
+                if (lastAgentId) {
+                    get().startSession({ type: 'agent', id: lastAgentId });
+                } else {
+                    // Fallback: if there's no context, just end the session.
+                    get().endSession();
+                }
+            },
         }),
         {
             name: 'coherence-hub-storage',
-            // Do not persist the chat object
+            // Do not persist chat objects
             partialize: (state) =>
                 Object.fromEntries(
-                    Object.entries(state).filter(([key]) => !['doshaChat'].includes(key))
+                    Object.entries(state).filter(([key]) => !['doshaChat', 'routineAlignerChat'].includes(key))
                 ),
             onRehydrateStorage: () => (state) => {
                 if (state) {
@@ -253,8 +405,6 @@ export const useStore = create<AppState>()(
                     const recommendation = getRecommendation(state.usv);
                     state.ucs = ucs;
                     state.recommendation = recommendation;
-                    // Ensure schedules are not reset on rehydration
-                    // The persisted state will automatically be merged.
                 }
             },
         }

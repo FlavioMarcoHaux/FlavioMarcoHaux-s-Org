@@ -3,13 +3,21 @@ import { analyzeDissonance } from '../services/geminiDissonanceService.ts';
 import { DissonanceAnalysisResult, AgentId } from '../types.ts';
 import { X, HeartPulse, Loader2, Sparkles } from 'lucide-react';
 import { useStore } from '../store.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 
 interface DissonanceAnalyzerProps {
     onExit: () => void;
 }
 
 const DissonanceAnalyzer: React.FC<DissonanceAnalyzerProps> = ({ onExit }) => {
-    const chatHistory = useStore(state => state.chatHistories[AgentId.COHERENCE] || []);
+    const { chatHistories, lastAgentContext, goBackToAgentRoom } = useStore(state => ({
+        chatHistories: state.chatHistories,
+        lastAgentContext: state.lastAgentContext,
+        goBackToAgentRoom: state.goBackToAgentRoom,
+    }));
+    const agentIdForContext = lastAgentContext ?? AgentId.COHERENCE;
+    const chatHistory = chatHistories[agentIdForContext] || [];
+    
     const [result, setResult] = useState<DissonanceAnalysisResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,7 +31,8 @@ const DissonanceAnalyzer: React.FC<DissonanceAnalyzerProps> = ({ onExit }) => {
             const analysisResult = await analyzeDissonance(chatHistory);
             setResult(analysisResult);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido durante a análise.');
+            const friendlyError = getFriendlyErrorMessage(err, 'Ocorreu um erro desconhecido durante a análise.');
+            setError(friendlyError);
         } finally {
             setIsLoading(false);
         }
@@ -42,9 +51,18 @@ const DissonanceAnalyzer: React.FC<DissonanceAnalyzerProps> = ({ onExit }) => {
                     <HeartPulse className="w-8 h-8 text-indigo-400" />
                     <h1 className="text-xl font-bold text-gray-200">Analisador de Dissonância</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Dissonance Analyzer">
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Dissonance Analyzer">
+                        <X size={24} />
+                    </button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
                 {isLoading && (

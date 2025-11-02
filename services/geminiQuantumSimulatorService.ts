@@ -23,6 +23,7 @@ Gere a interpretação agora.
 
 export const getQuantumInterpretation = async (outcome: string): Promise<string> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = getSimulatorInterpretationPrompt(outcome);
 
@@ -34,6 +35,6 @@ export const getQuantumInterpretation = async (outcome: string): Promise<string>
     return response.text.trim();
   } catch (error) {
       console.error(`Error getting quantum interpretation:`, error);
-      throw new Error("Falha ao obter a interpretação quântica.");
+      throw error;
   }
 };

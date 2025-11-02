@@ -4,6 +4,7 @@ import { generateMeditationScript } from '../services/geminiScriptService.ts';
 import { generateImage } from '../services/geminiImagenService.ts';
 import { generateSpeech } from '../services/geminiTtsService.ts';
 import { decode, decodeAudioData } from '../utils/audioUtils.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 import { X, Pause, Play, Loader2 } from 'lucide-react';
 
 interface GuidedMeditationVoiceProps {
@@ -80,8 +81,8 @@ const GuidedMeditationVoice: React.FC<GuidedMeditationVoiceProps> = ({ schedule,
             setState('playing');
             isPlayingRef.current = true;
         } catch (err) {
-            console.error(err);
-            setError(err instanceof Error ? err.message : "Failed to create meditation experience.");
+            const friendlyError = getFriendlyErrorMessage(err, "Falha ao criar a experiência de meditação.");
+            setError(friendlyError);
             setState('error');
         }
     }, []);

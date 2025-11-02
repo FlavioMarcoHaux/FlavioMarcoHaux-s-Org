@@ -9,7 +9,8 @@ const getSystemInstructionForAgent = (agentId: AgentId): string => {
     if (!agent) {
         return "Você é um assistente geral prestativo. Responda em Português do Brasil.";
     }
-    return `Você é o ${agent.name}. ${agent.description}. Aja estritamente como este personagem. Seja prestativo, perspicaz e mantenha o tom de sua persona. Responda em Português do Brasil. Suas respostas devem ser concisas e diretas.`;
+    const persona = agent.persona || agent.description;
+    return `Você é o ${agent.name}. ${persona}. Aja estritamente como este personagem. Seja prestativo, perspicaz e mantenha o tom de sua persona. Responda em Português do Brasil. Suas respostas devem ser concisas e diretas.`;
 };
 
 const formatChatHistoryForApi = (history: Message[]) => {
@@ -21,6 +22,7 @@ const formatChatHistoryForApi = (history: Message[]) => {
 
 export const generateAgentResponse = async (agentId: AgentId, history: Message[]): Promise<string> => {
     try {
+        // Instantiate client right before the call to use the latest key
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const systemInstruction = getSystemInstructionForAgent(agentId);
         const lastMessage = history[history.length - 1];
@@ -40,6 +42,6 @@ export const generateAgentResponse = async (agentId: AgentId, history: Message[]
         return response.text;
     } catch (error) {
         console.error(`Error generating response for agent ${agentId}:`, error);
-        throw new Error(`Falha ao gerar resposta do ${AGENTS[agentId].name}.`);
+        throw error;
     }
 };

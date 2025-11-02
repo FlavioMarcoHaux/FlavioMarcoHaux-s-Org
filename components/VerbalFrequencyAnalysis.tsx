@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { analyzeVerbalFrequency } from '../services/geminiVerbalFrequencyService.ts';
 import { VerbalFrequencyAnalysisResult, AgentId } from '../types.ts';
 import { X, Waves, Loader2, Sparkles } from 'lucide-react';
 import { useStore } from '../store.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 
 interface VerbalFrequencyAnalysisProps {
     onExit: () => void;
 }
 
 const VerbalFrequencyAnalysis: React.FC<VerbalFrequencyAnalysisProps> = ({ onExit }) => {
-    const { chatHistories } = useStore();
-    const chatHistory = [
-        ...(chatHistories[AgentId.COHERENCE] || []),
-        ...(chatHistories[AgentId.SELF_KNOWLEDGE] || [])
-    ];
+    const { chatHistories, lastAgentContext, goBackToAgentRoom } = useStore(state => ({
+        chatHistories: state.chatHistories,
+        lastAgentContext: state.lastAgentContext,
+        goBackToAgentRoom: state.goBackToAgentRoom,
+    }));
+    const agentIdForContext = lastAgentContext ?? AgentId.SELF_KNOWLEDGE;
+    const chatHistory = chatHistories[agentIdForContext] || [];
     
     const [result, setResult] = useState<VerbalFrequencyAnalysisResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleAnalyze = async () => {
+    const handleAnalyze = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         setResult(null);
@@ -28,17 +31,18 @@ const VerbalFrequencyAnalysis: React.FC<VerbalFrequencyAnalysisProps> = ({ onExi
             const analysisResult = await analyzeVerbalFrequency(chatHistory);
             setResult(analysisResult);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido durante a análise.');
+            const friendlyError = getFriendlyErrorMessage(err, 'Ocorreu um erro desconhecido durante a análise.');
+            setError(friendlyError);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [chatHistory]);
     
     useEffect(() => {
         if (chatHistory.length > 1) { 
             handleAnalyze();
         }
-    }, [chatHistory.length]);
+    }, [chatHistory.length, handleAnalyze]);
 
     return (
         <div className="h-full w-full glass-pane rounded-2xl flex flex-col p-1 animate-fade-in">
@@ -47,9 +51,18 @@ const VerbalFrequencyAnalysis: React.FC<VerbalFrequencyAnalysisProps> = ({ onExi
                     <Waves className="w-8 h-8 text-purple-400" />
                     <h1 className="text-xl font-bold text-gray-200">Análise de Frequência Verbal</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Verbal Frequency Analysis">
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Verbal Frequency Analysis">
+                        <X size={24} />
+                    </button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
                 {isLoading && (

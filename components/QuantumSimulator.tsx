@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { getQuantumInterpretation } from '../services/geminiQuantumSimulatorService.ts';
 import { X, Eye, Zap, Loader2 } from 'lucide-react';
+import { useStore } from '../store.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 
 const QuantumSimulator: React.FC<{ onExit: () => void }> = ({ onExit }) => {
+    const { goBackToAgentRoom } = useStore();
     const [state, setState] = useState<'superposition' | 'observing' | 'collapsed'>('superposition');
     const [outcome, setOutcome] = useState('');
     const [interpretation, setInterpretation] = useState('');
@@ -29,7 +32,8 @@ const QuantumSimulator: React.FC<{ onExit: () => void }> = ({ onExit }) => {
 
             setState('collapsed');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Falha ao conectar com a consciência universal.');
+            const friendlyError = getFriendlyErrorMessage(err, 'Falha ao conectar com a consciência universal.');
+            setError(friendlyError);
             setState('superposition'); // Reset on error
         }
     };
@@ -48,7 +52,16 @@ const QuantumSimulator: React.FC<{ onExit: () => void }> = ({ onExit }) => {
                     <Zap className="w-8 h-8 text-purple-400" />
                     <h1 className="text-xl font-bold text-gray-200">Simulador Quântico da Consciência</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                </div>
             </header>
             <main className="flex-1 flex flex-col items-center justify-start text-center p-6 pt-12 overflow-y-auto no-scrollbar">
                  <p className="text-lg text-gray-400 mb-8 max-w-2xl">

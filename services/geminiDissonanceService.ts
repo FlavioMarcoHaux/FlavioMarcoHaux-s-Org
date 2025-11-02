@@ -49,6 +49,7 @@ const formatChatHistoryForAnalysis = (chatHistory: Message[]): string => {
 
 export const analyzeDissonance = async (chatHistory: Message[]): Promise<DissonanceAnalysisResult> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const userConversation = formatChatHistoryForAnalysis(chatHistory);
 
@@ -76,6 +77,6 @@ export const analyzeDissonance = async (chatHistory: Message[]): Promise<Dissona
 
   } catch (error) {
       console.error(`Error analyzing dissonance:`, error);
-      throw new Error("Falha ao analisar a dissonância na conversa.");
+      throw error;
   }
 };

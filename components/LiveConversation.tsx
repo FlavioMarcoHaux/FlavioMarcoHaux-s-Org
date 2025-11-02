@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenaiBlob } from '@google/genai';
 import { decode, decodeAudioData, encode } from '../utils/audioUtils.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 import { X, Mic, MicOff, Loader2, MessageSquare } from 'lucide-react';
+import { useStore } from '../store.ts';
 
 interface LiveConversationProps {
     onExit: () => void;
@@ -16,6 +18,7 @@ type TranscriptEntry = {
 };
 
 const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
+    const { goBackToAgentRoom } = useStore();
     const [status, setStatus] = useState<Status>('idle');
     const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -166,8 +169,8 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
                         }
                     },
                     onerror: (e: ErrorEvent) => {
-                        console.error('Live session error:', e);
-                        setError('Ocorreu um erro na conexão. Por favor, tente novamente.');
+                        const friendlyError = getFriendlyErrorMessage(e, 'Ocorreu um erro na conexão. Por favor, tente novamente.');
+                        setError(friendlyError);
                         setStatus('error');
                         cleanup();
                     },
@@ -196,7 +199,7 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
                     message = 'Acesso ao microfone negado pelo sistema. Verifique se o navegador tem permissão para usar o microfone nas configurações de privacidade do seu sistema operacional (Windows/macOS).';
                 }
             } else {
-                message = 'Ocorreu um erro inesperado ao tentar acessar o microfone. Verifique as permissões do navegador e do sistema.';
+                message = getFriendlyErrorMessage(err, 'Ocorreu um erro inesperado ao tentar acessar o microfone.');
             }
             setError(message);
             setStatus('error');
@@ -225,7 +228,16 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
                     <MessageSquare className="w-8 h-8 text-purple-400" />
                     <h1 className="text-xl font-bold text-gray-200">Diálogo com o Arquiteto</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
                  {transcript.length === 0 && status !== 'connecting' && status !== 'error' && (
@@ -257,6 +269,11 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
                             </button>
                         )}
                     </>
+                )}
+                 {status === 'error' && (
+                    <button onClick={handleConnect} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-full">
+                        Tentar Novamente
+                    </button>
                 )}
             </footer>
         </div>

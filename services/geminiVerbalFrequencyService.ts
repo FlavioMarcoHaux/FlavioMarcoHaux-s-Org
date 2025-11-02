@@ -63,6 +63,7 @@ const formatChatHistoryForAnalysis = (chatHistory: Message[]): string => {
 
 export const analyzeVerbalFrequency = async (chatHistory: Message[]): Promise<VerbalFrequencyAnalysisResult> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const conversation = formatChatHistoryForAnalysis(chatHistory);
 
@@ -89,6 +90,6 @@ export const analyzeVerbalFrequency = async (chatHistory: Message[]): Promise<Ve
 
   } catch (error) {
       console.error(`Error analyzing verbal frequency:`, error);
-      throw new Error("Falha ao analisar a frequência verbal da conversa.");
+      throw error;
   }
 };

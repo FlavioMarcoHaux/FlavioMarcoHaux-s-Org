@@ -49,6 +49,7 @@ const archetypeSchema = {
 
 export const analyzeNarrative = async (narrative: string): Promise<ArchetypeAnalysisResult> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const fullPrompt = `${ARCHETYPE_ANALYSIS_PROMPT}\n\n--- NARRATIVA DO USUÁRIO PARA ANÁLISE ---\n${narrative}\n--- FIM DA NARRATIVA ---`;
@@ -74,6 +75,6 @@ export const analyzeNarrative = async (narrative: string): Promise<ArchetypeAnal
 
   } catch (error) {
       console.error(`Error analyzing narrative:`, error);
-      throw new Error("Falha ao analisar a jornada arquetípica.");
+      throw error;
   }
 };

@@ -47,6 +47,7 @@ const journalFeedbackSchema = {
 
 export const analyzeJournalEntry = async (entryText: string): Promise<JournalFeedback> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const fullPrompt = `${JOURNAL_ANALYSIS_PROMPT}\n\n--- REGISTRO DO DIÁRIO PARA ANÁLISE ---\n${entryText}\n--- FIM DO REGISTRO ---`;
@@ -72,6 +73,6 @@ export const analyzeJournalEntry = async (entryText: string): Promise<JournalFee
 
   } catch (error) {
       console.error(`Error analyzing journal entry:`, error);
-      throw new Error("Falha ao analisar o registro do diário.");
+      throw error;
   }
 };

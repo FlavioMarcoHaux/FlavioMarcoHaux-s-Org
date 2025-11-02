@@ -4,13 +4,14 @@ import { readFileAsBase64 } from '../utils/fileUtils.ts';
 import { Message, AgentId } from '../types.ts';
 import { X, ScanText, Loader2, UploadCloud, FileText, Send, Trash2 } from 'lucide-react';
 import { useStore } from '../store.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 
 interface ContentAnalyzerProps {
     onExit: () => void;
 }
 
 const ContentAnalyzer: React.FC<ContentAnalyzerProps> = ({ onExit }) => {
-    const { chatHistories } = useStore();
+    const { chatHistories, lastAgentContext, goBackToAgentRoom } = useStore();
     
     const [text, setText] = useState('');
     const [file, setFile] = useState<{ data: string; mimeType: string; name: string; } | null>(null);
@@ -43,18 +44,17 @@ const ContentAnalyzer: React.FC<ContentAnalyzerProps> = ({ onExit }) => {
         setResult(null);
 
         try {
-            const relevantChatHistory = [
-                ...(chatHistories[AgentId.COHERENCE] || []),
-                ...(chatHistories[AgentId.SELF_KNOWLEDGE] || [])
-            ];
+            const agentIdForContext = lastAgentContext ?? AgentId.SELF_KNOWLEDGE;
+            const relevantChatHistory = chatHistories[agentIdForContext] || [];
             const analysisResult = await analyzeContentWithPIC({ text, file: file || undefined }, relevantChatHistory);
             setResult(analysisResult);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido durante a análise.');
+            const friendlyError = getFriendlyErrorMessage(err, 'Ocorreu um erro desconhecido durante a análise.');
+            setError(friendlyError);
         } finally {
             setIsLoading(false);
         }
-    }, [text, file, chatHistories]);
+    }, [text, file, chatHistories, lastAgentContext]);
 
     const handleReset = () => {
         setText('');
@@ -71,13 +71,22 @@ const ContentAnalyzer: React.FC<ContentAnalyzerProps> = ({ onExit }) => {
                     <ScanText className="w-8 h-8 text-indigo-400" />
                     <h1 className="text-xl font-bold text-gray-200">Analisador Consciente</h1>
                 </div>
-                <button
-                    onClick={onExit}
-                    className="text-gray-400 hover:text-white transition-colors"
-                    aria-label="Exit Content Analyzer"
-                >
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button
+                        onClick={onExit}
+                        className="text-gray-400 hover:text-white transition-colors"
+                        aria-label="Exit Content Analyzer"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-6 no-scrollbar">
                 {isLoading && !result && (

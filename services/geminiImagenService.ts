@@ -33,6 +33,6 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio = '
 
     } catch (error) {
         console.error("Error generating image with Imagen:", error);
-        throw new Error("Failed to generate image using the Imagen API.");
+        throw error;
     }
 };

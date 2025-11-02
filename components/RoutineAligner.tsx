@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef, FormEvent } from 'react';
-import { X, Stethoscope, Send, Loader2 } from 'lucide-react';
+import { X, ClipboardCheck, Send, Loader2 } from 'lucide-react';
 import { useStore } from '../store.ts';
 
-interface DoshaDiagnosisProps {
+interface RoutineAlignerProps {
     onExit: () => void;
 }
 
-const DoshaDiagnosis: React.FC<DoshaDiagnosisProps> = ({ onExit }) => {
-    const { toolStates, isLoadingMessage, handleDoshaSendMessage, startSession, goBackToAgentRoom } = useStore();
-    const doshaState = toolStates.doshaDiagnosis;
+const RoutineAligner: React.FC<RoutineAlignerProps> = ({ onExit }) => {
+    const { toolStates, isLoadingMessage, handleRoutineAlignerSendMessage, goBackToAgentRoom } = useStore();
+    const routineAlignerState = toolStates.routineAligner;
 
-    const messages = doshaState?.messages || [];
-    const isFinished = doshaState?.isFinished || false;
-    const error = doshaState?.error || null;
+    const messages = routineAlignerState?.messages || [];
+    const isFinished = routineAlignerState?.isFinished || false;
+    const error = routineAlignerState?.error || null;
     
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -24,20 +24,16 @@ const DoshaDiagnosis: React.FC<DoshaDiagnosisProps> = ({ onExit }) => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (!input.trim() || isLoadingMessage || isFinished) return;
-        handleDoshaSendMessage(input.trim());
+        handleRoutineAlignerSendMessage(input.trim());
         setInput('');
-    };
-
-    const handleGoToRoutineAligner = () => {
-        startSession({ type: 'routine_aligner' });
     };
 
     return (
         <div className="h-full w-full glass-pane rounded-2xl flex flex-col p-1 animate-fade-in">
             <header className="flex items-center justify-between p-4 border-b border-gray-700/50">
                 <div className="flex items-center gap-3">
-                    <Stethoscope className="w-8 h-8 text-green-400" />
-                    <h1 className="text-xl font-bold text-gray-200">Diagnóstico Informacional</h1>
+                    <ClipboardCheck className="w-8 h-8 text-green-400" />
+                    <h1 className="text-xl font-bold text-gray-200">Alinhador de Rotina</h1>
                 </div>
                 <div className="flex items-center gap-4">
                     <button
@@ -47,12 +43,12 @@ const DoshaDiagnosis: React.FC<DoshaDiagnosisProps> = ({ onExit }) => {
                     >
                         Voltar
                     </button>
-                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Dosha Diagnosis">
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Routine Aligner">
                         <X size={24} />
                     </button>
                 </div>
             </header>
-            <main className="flex-1 flex flex-col overflow-hidden relative">
+            <main className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
                     {messages.map((message) => (
                         <div key={message.id} className={`flex items-start gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -77,36 +73,13 @@ const DoshaDiagnosis: React.FC<DoshaDiagnosisProps> = ({ onExit }) => {
                     )}
                     <div ref={messagesEndRef} />
                 </div>
-                
-                {isFinished && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-                        <div className="relative bg-gray-800/80 border border-gray-700 p-8 rounded-2xl shadow-2xl max-w-md">
-                             <button
-                                onClick={onExit}
-                                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-                                aria-label="Fechar pop-up"
-                            >
-                                <X size={24} />
-                            </button>
-                             <h3 className="text-2xl font-bold text-gray-100 mb-3">Diagnóstico Concluído!</h3>
-                             <p className="text-gray-300 mb-6">Seu padrão de dissonância foi identificado. O próximo passo é criar sua rotina personalizada para restaurar a harmonia.</p>
-                            <button 
-                                onClick={handleGoToRoutineAligner}
-                                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-colors shadow-lg hover:scale-105"
-                            >
-                                Ir para o Alinhador de Rotina
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 <div className="p-4 border-t border-gray-700/50">
                     <form onSubmit={handleSubmit} className="flex items-center gap-3">
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={isFinished ? "Diagnóstico concluído." : "Digite sua resposta..."}
+                            placeholder={isFinished ? "Rotina alinhada." : "Digite sua resposta..."}
                             disabled={isLoadingMessage || isFinished}
                             className="flex-1 bg-gray-800/80 border border-gray-600 rounded-full px-5 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 disabled:opacity-50"
                         />
@@ -124,4 +97,4 @@ const DoshaDiagnosis: React.FC<DoshaDiagnosisProps> = ({ onExit }) => {
     );
 };
 
-export default DoshaDiagnosis;
+export default RoutineAligner;

@@ -34,6 +34,7 @@ Gere a Pílula de Oração agora.
 
 export const generatePrayerPill = async (theme: string, chatHistory?: Message[]): Promise<string> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = getPrayerPillPrompt(theme, chatHistory);
 
@@ -45,6 +46,6 @@ export const generatePrayerPill = async (theme: string, chatHistory?: Message[])
     return response.text;
   } catch (error) {
       console.error(`Error generating prayer pill:`, error);
-      throw new Error("Falha ao gerar a Pílula de Oração. Por favor, tente novamente.");
+      throw error;
   }
 };

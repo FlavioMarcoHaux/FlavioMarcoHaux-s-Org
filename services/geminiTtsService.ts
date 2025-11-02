@@ -7,6 +7,7 @@ export type TtsVoice = 'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr';
 
 export const generateSpeech = async (text: string, voiceName: TtsVoice = 'Zephyr'): Promise<{ data: string; mimeType: string; } | null> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const response = await ai.models.generateContent({
@@ -23,11 +24,7 @@ export const generateSpeech = async (text: string, voiceName: TtsVoice = 'Zephyr
     });
 
     const audioPart = response.candidates?.[0]?.content?.parts?.[0];
-    // FIX: The type from the SDK for `inlineData` has an optional `data` property,
-    // which is incompatible with this function's explicit return type.
-    // This ensures `data` exists and returns an object that matches the required type.
     if (audioPart?.inlineData?.data) {
-      // Return the full inlineData object which includes { data, mimeType }
       return {
         data: audioPart.inlineData.data,
         mimeType: audioPart.inlineData.mimeType,
@@ -36,6 +33,6 @@ export const generateSpeech = async (text: string, voiceName: TtsVoice = 'Zephyr
     return null;
   } catch (error) {
     console.error("Error generating speech:", error);
-    throw new Error("Failed to generate speech from API.");
+    throw error;
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store.ts';
 import { UserStateVector, AgentId } from '../types.ts';
 import { generateGuidedPrayer, recommendPrayerTheme } from '../services/geminiPrayerService.ts';
@@ -6,6 +6,7 @@ import { generateImagePromptForPrayer } from '../services/geminiContentService.t
 import { generateImage } from '../services/geminiImagenService.ts';
 import { generateSpeech } from '../services/geminiTtsService.ts';
 import { decode, encodeWAV } from '../utils/audioUtils.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 import { X, Sparkles, BookOpen, Volume2, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 interface GuidedPrayerProps {
@@ -30,8 +31,14 @@ const getPrayerSuggestions = (usv: UserStateVector): string[] => {
 };
 
 const GuidedPrayer: React.FC<GuidedPrayerProps> = ({ onExit }) => {
-    const { usv, chatHistories } = useStore();
-    const chatHistory = chatHistories[AgentId.COHERENCE];
+    const { usv, chatHistories, lastAgentContext, goBackToAgentRoom } = useStore(state => ({
+        usv: state.usv,
+        chatHistories: state.chatHistories,
+        lastAgentContext: state.lastAgentContext,
+        goBackToAgentRoom: state.goBackToAgentRoom,
+    }));
+    const agentIdForContext = lastAgentContext ?? AgentId.COHERENCE;
+    const chatHistory = chatHistories[agentIdForContext];
 
     const [state, setState] = useState<PrayerState>('config');
     const [theme, setTheme] = useState('');
@@ -44,6 +51,9 @@ const GuidedPrayer: React.FC<GuidedPrayerProps> = ({ onExit }) => {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [isRecommending, setIsRecommending] = useState(false);
 
+    const [playbackRate, setPlaybackRate] = useState(1);
+    const audioRef = useRef<HTMLAudioElement>(null);
+
     const suggestions = useMemo(() => getPrayerSuggestions(usv), [usv]);
     
     useEffect(() => {
@@ -53,6 +63,12 @@ const GuidedPrayer: React.FC<GuidedPrayerProps> = ({ onExit }) => {
             }
         };
     }, [audioUrl]);
+
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.playbackRate = playbackRate;
+        }
+    }, [playbackRate, audioUrl]);
 
     const handleGeneratePrayer = async (inputTheme: string) => {
         if (!inputTheme.trim()) return;
@@ -68,7 +84,8 @@ const GuidedPrayer: React.FC<GuidedPrayerProps> = ({ onExit }) => {
             setPrayerText(result);
             setState('display');
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Falha ao gerar a oração.");
+            const friendlyError = getFriendlyErrorMessage(err, "Falha ao gerar a oração.");
+            setError(friendlyError);
             setState('error');
         }
     };
@@ -80,7 +97,8 @@ const GuidedPrayer: React.FC<GuidedPrayerProps> = ({ onExit }) => {
             const recommendedTheme = await recommendPrayerTheme(usv, chatHistory);
             await handleGeneratePrayer(recommendedTheme);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Falha ao obter uma recomendação.");
+            const friendlyError = getFriendlyErrorMessage(err, "Falha ao obter uma recomendação.");
+            setError(friendlyError);
             setState('error');
         } finally {
             setIsRecommending(false);
@@ -190,7 +208,23 @@ const GuidedPrayer: React.FC<GuidedPrayerProps> = ({ onExit }) => {
                                     {isGeneratingImage ? 'Gerando...' : 'Gerar Imagem'}
                                 </button>
                              </div>
-                             {audioUrl && <audio controls src={audioUrl} className="w-full" />}
+                             {audioUrl && (
+                                 <div className="w-full max-w-lg mx-auto space-y-3">
+                                     <audio ref={audioRef} controls src={audioUrl} className="w-full" />
+                                     <div className="flex items-center justify-center gap-2">
+                                         <span className="text-sm text-gray-400">Velocidade:</span>
+                                         {[0.75, 1, 1.25, 1.5].map(rate => (
+                                             <button
+                                                 key={rate}
+                                                 onClick={() => setPlaybackRate(rate)}
+                                                 className={`px-3 py-1 text-xs rounded-full transition-colors ${playbackRate === rate ? 'bg-indigo-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
+                                             >
+                                                 {rate}x
+                                             </button>
+                                         ))}
+                                     </div>
+                                 </div>
+                             )}
                          </div>
                     </div>
                 );
@@ -261,13 +295,22 @@ const GuidedPrayer: React.FC<GuidedPrayerProps> = ({ onExit }) => {
         <div className="h-full w-full glass-pane rounded-2xl flex flex-col p-1 animate-fade-in">
             <header className="flex items-center justify-between p-4 border-b border-gray-700/50">
                 <h1 className="text-xl font-bold text-indigo-400">Oração Guiada</h1>
-                <button
-                    onClick={onExit}
-                    className="text-gray-400 hover:text-white transition-colors"
-                    aria-label="Exit Guided Prayer"
-                >
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button
+                        onClick={onExit}
+                        className="text-gray-400 hover:text-white transition-colors"
+                        aria-label="Exit Guided Prayer"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
             </header>
             <main className="flex-1 overflow-hidden">
                 {renderContent()}

@@ -29,6 +29,7 @@ Seja breve, amigável e direto ao ponto. Fale em Português do Brasil.
 }
 
 export const createSchedulingSession = (schedule: Schedule, callbacks: any) => {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const systemInstruction = getSchedulingSystemInstruction(schedule);
     

@@ -43,6 +43,7 @@ const formatChatHistoryForPrompt = (chatHistory: Message[]): string => {
 
 export const generateMeditationScript = async (prompt: string, durationMinutes: number, chatHistory?: Message[]): Promise<Meditation> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const historyContext = chatHistory ? formatChatHistoryForPrompt(chatHistory) : '';
@@ -65,12 +66,10 @@ ${historyContext}
     });
 
     const jsonText = response.text.trim();
-    // Gemini with JSON schema might still wrap the JSON in ```json ... ```
     const cleanJsonText = jsonText.startsWith('```json') ? jsonText.replace(/```json\n?/, '').replace(/```$/, '') : jsonText;
     
     const parsedResponse = JSON.parse(cleanJsonText);
     
-    // Validate the response structure (simple check)
     if (!parsedResponse.title || !Array.isArray(parsedResponse.script)) {
         throw new Error("Invalid script format received from API.");
     }
@@ -82,6 +81,63 @@ ${historyContext}
 
   } catch (error) {
     console.error('Error generating meditation script:', error);
-    throw new Error('Falha ao gerar o roteiro de meditação.');
+    throw error;
   }
+};
+
+/**
+ * Summarizes a chat history to create a concise meditation intention.
+ * @param chatHistory The chat history to analyze.
+ * @returns A promise that resolves to a concise sentence for the meditation prompt.
+ */
+export const summarizeChatForMeditation = async (chatHistory: Message[], doshaResult: string | null | undefined): Promise<string> => {
+    if (!chatHistory || chatHistory.length === 0) {
+        return '';
+    }
+    
+    try {
+        // Instantiate client right before the call to use the latest key
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const historyString = chatHistory.map(msg => `${msg.sender === 'user' ? 'Usuário' : 'Mentor'}: ${msg.text}`).join('\n');
+
+        const doshaContext = doshaResult
+            ? `\n\nContexto Adicional de Saúde:
+            O diagnóstico Ayurvédico do usuário indicou um desequilíbrio no Dosha **${doshaResult}**.
+            A intenção da meditação deve, sutilmente, ajudar a pacificar este desequilíbrio.
+            - Para Vata (movimento, ar), foque em aterramento, calma e aquecimento.
+            - Para Pitta (fogo, transformação), foque em serenidade, resfriamento e aceitação.
+            - Para Kapha (estrutura, terra), foque em motivação, leveza e energia.`
+            : '';
+
+        const prompt = `
+            Analise o seguinte histórico de conversa entre um usuário e seu mentor.
+            Extraia os temas centrais, as dores, os desejos e as palavras-chave mais importantes.
+            Com base nessa análise, sintetize uma única frase concisa e inspiradora que sirva como uma "intenção" para uma meditação guiada.
+            A frase deve capturar a essência da necessidade atual do usuário.
+            ${doshaContext}
+
+            Exemplos:
+            - Se a conversa for sobre ansiedade e medo do futuro, a intenção poderia ser: "Encontrar a paz no momento presente e confiar no fluxo da vida."
+            - Se a conversa for sobre falta de propósito, a intenção poderia ser: "Conectar-me com minha verdade interior e clarear meu propósito."
+
+            Histórico da Conversa:
+            ${historyString}
+
+            Formato de Saída OBRIGATÓRIO:
+            Responda APENAS com a frase da intenção, sem nenhum outro texto ou explicação.
+
+            Intenção para Meditação:
+        `;
+
+        const response = await ai.models.generateContent({
+            model: SCRIPT_GENERATION_MODEL,
+            contents: prompt,
+        });
+
+        return response.text.trim();
+
+    } catch (error) {
+        console.error('Error summarizing chat for meditation:', error);
+        throw error;
+    }
 };

@@ -31,6 +31,7 @@ export type ToolId =
   | 'archetype_journey'
   | 'verbal_frequency_analysis'
   | 'live_conversation'
+  | 'routine_aligner'
   | 'scheduled_session';
 
 /**
@@ -40,9 +41,11 @@ export interface Agent {
   id: AgentId;
   name: string;
   description: string;
+  persona?: string;
   themeColor: string;
   icon: React.ElementType;
   tools?: ToolId[];
+  initialMessage?: string;
 }
 
 /**
@@ -105,6 +108,7 @@ export type Session =
   | { type: 'archetype_journey' }
   | { type: 'verbal_frequency_analysis' }
   | { type: 'live_conversation' }
+  | { type: 'routine_aligner' }
   | { type: 'scheduled_session' }
   | { type: 'scheduled_session_handler', schedule: Schedule }
   | { type: 'guided_meditation_voice', schedule: Schedule };
@@ -163,6 +167,8 @@ export interface ToastMessage {
 export type ToolStates = {
     therapeuticJournal?: { entry: string; feedback: JournalFeedback | null; error: string | null };
     doshaDiagnosis?: { messages: Message[]; isFinished: boolean; error: string | null; };
+    routineAligner?: { messages: Message[]; isFinished: boolean; error: string | null; };
+    doshaResult?: 'Vata' | 'Pitta' | 'Kapha' | null;
 };
 
 /**

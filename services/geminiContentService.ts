@@ -37,6 +37,7 @@ export const analyzeContentWithPIC = async (
     }
 
     try {
+        // Instantiate client right before the call to use the latest key
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         const historyContext = chatHistory ? formatChatHistoryForPrompt(chatHistory) : '';
@@ -57,7 +58,7 @@ export const analyzeContentWithPIC = async (
         return response.text.trim();
     } catch (error) {
         console.error("Error analyzing content with PIC:", error);
-        throw new Error("Falha ao analisar o conteúdo sob a ótica do PIC.");
+        throw error;
     }
 };
 
@@ -68,6 +69,7 @@ export const analyzeContentWithPIC = async (
  */
 export const generateImagePromptForPrayer = async (prayerText: string): Promise<string> => {
     try {
+        // Instantiate client right before the call to use the latest key
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = `
             Leia a seguinte oração guiada e crie um prompt curto e poderoso para um gerador de imagens (como o Imagen).
@@ -89,6 +91,6 @@ export const generateImagePromptForPrayer = async (prayerText: string): Promise<
         return response.text.trim();
     } catch (error) {
         console.error("Error generating image prompt for prayer:", error);
-        throw new Error("Failed to generate an image prompt.");
+        throw error;
     }
 };

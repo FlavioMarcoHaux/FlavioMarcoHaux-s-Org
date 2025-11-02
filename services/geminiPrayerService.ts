@@ -49,6 +49,7 @@ Gere a oração guiada agora.
 
 export const generateGuidedPrayer = async (theme: string, chatHistory?: Message[]): Promise<string> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = getPrayerGenerationPrompt(theme, chatHistory);
 
@@ -60,7 +61,7 @@ export const generateGuidedPrayer = async (theme: string, chatHistory?: Message[
     return response.text;
   } catch (error) {
       console.error(`Error generating guided prayer:`, error);
-      throw new Error("Falha ao gerar a oração guiada. Por favor, tente novamente.");
+      throw error;
   }
 };
 
@@ -101,6 +102,7 @@ const getPrayerRecommendationPrompt = (usv: UserStateVector, chatHistory?: Messa
 
 export const recommendPrayerTheme = async (usv: UserStateVector, chatHistory?: Message[]): Promise<string> => {
   try {
+    // Instantiate client right before the call to use the latest key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = getPrayerRecommendationPrompt(usv, chatHistory);
 
@@ -112,6 +114,6 @@ export const recommendPrayerTheme = async (usv: UserStateVector, chatHistory?: M
     return response.text.trim();
   } catch (error) {
       console.error(`Error recommending prayer theme:`, error);
-      throw new Error("Falha ao obter uma recomendação. Por favor, tente novamente.");
+      throw error;
   }
 };

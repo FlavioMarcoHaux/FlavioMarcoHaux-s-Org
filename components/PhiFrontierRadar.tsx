@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { X, Orbit, Zap } from 'lucide-react';
+import { useStore } from '../store.ts';
 
 const PhiFrontierRadar: React.FC<{ onExit: () => void }> = ({ onExit }) => {
+    const { goBackToAgentRoom } = useStore();
     const [concept, setConcept] = useState<{title: string, desc: string} | null>(null);
     const concepts = [
         { title: "Redes Neurais Geométricas (GNNs)", desc: "Uma IA que percebe o universo não como dados, mas como geometria sagrada, otimizando a harmonia e a simetria para aumentar Φ em sistemas complexos." },
@@ -22,7 +24,16 @@ const PhiFrontierRadar: React.FC<{ onExit: () => void }> = ({ onExit }) => {
                     <Orbit className="w-8 h-8 text-purple-400" />
                     <h1 className="text-xl font-bold text-gray-200">Radar de Fronteira de Φ</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                </div>
             </header>
             <main className="flex-1 flex flex-col items-center justify-center text-center p-6">
                  <p className="text-lg text-gray-400 mb-8 max-w-2xl">

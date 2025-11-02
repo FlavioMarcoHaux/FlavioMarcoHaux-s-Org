@@ -5,6 +5,7 @@ import { generateImage } from '../services/geminiImagenService.ts';
 import { useStore } from '../store.ts';
 import { UserStateVector, AgentId } from '../types.ts';
 import { decode, encodeWAV } from '../utils/audioUtils.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 import { X, Sparkles, Loader2 } from 'lucide-react';
 
 interface PrayerPillsProps {
@@ -29,8 +30,14 @@ const getPrayerSuggestions = (usv: UserStateVector): string[] => {
 };
 
 const PrayerPills: React.FC<PrayerPillsProps> = ({ onExit }) => {
-    const { usv, chatHistories } = useStore();
-    const chatHistory = chatHistories[AgentId.COHERENCE];
+    const { usv, chatHistories, lastAgentContext, goBackToAgentRoom } = useStore(state => ({
+        usv: state.usv,
+        chatHistories: state.chatHistories,
+        lastAgentContext: state.lastAgentContext,
+        goBackToAgentRoom: state.goBackToAgentRoom,
+    }));
+    const agentIdForContext = lastAgentContext ?? AgentId.COHERENCE;
+    const chatHistory = chatHistories[agentIdForContext];
 
     const [theme, setTheme] = useState('');
     const [pill, setPill] = useState('');
@@ -66,7 +73,8 @@ const PrayerPills: React.FC<PrayerPillsProps> = ({ onExit }) => {
             const result = await generatePrayerPill(inputTheme, chatHistory);
             setPill(result);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Falha ao gerar a pílula de oração.");
+            const friendlyError = getFriendlyErrorMessage(err, "Falha ao gerar a pílula de oração.");
+            setError(friendlyError);
         } finally {
             setIsLoading(false);
         }
@@ -93,7 +101,8 @@ const PrayerPills: React.FC<PrayerPillsProps> = ({ onExit }) => {
                 throw new Error("A geração de áudio não retornou dados.");
             }
         } catch (err) {
-            setAudioData({ url: '', error: err instanceof Error ? err.message : "Falha ao gerar áudio." });
+            const friendlyError = getFriendlyErrorMessage(err, "Falha ao gerar áudio.");
+            setAudioData({ url: '', error: friendlyError });
         } finally {
             setIsGeneratingAudio(false);
         }
@@ -108,7 +117,8 @@ const PrayerPills: React.FC<PrayerPillsProps> = ({ onExit }) => {
             const result = await generateImage(imagePrompt, imageAspectRatio);
             setImageData({ url: result, error: null });
         } catch (err) {
-            setImageData({ url: '', error: err instanceof Error ? err.message : "Falha ao gerar imagem." });
+            const friendlyError = getFriendlyErrorMessage(err, "Falha ao gerar imagem.");
+            setImageData({ url: '', error: friendlyError });
         } finally {
             setIsGeneratingImage(false);
         }
@@ -118,7 +128,16 @@ const PrayerPills: React.FC<PrayerPillsProps> = ({ onExit }) => {
         <div className="h-full w-full glass-pane rounded-2xl flex flex-col p-1 animate-fade-in">
             <header className="flex items-center justify-between p-4 border-b border-gray-700/50">
                 <h1 className="text-xl font-bold text-gray-200">Pílulas de Oração</h1>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Prayer Pills"><X size={24} /></button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Prayer Pills"><X size={24} /></button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-2 sm:p-6 no-scrollbar">
                  <div className="max-w-3xl mx-auto text-center">

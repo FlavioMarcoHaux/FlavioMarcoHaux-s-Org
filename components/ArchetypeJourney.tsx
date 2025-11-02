@@ -3,12 +3,15 @@ import React, { useState } from 'react';
 import { analyzeNarrative } from '../services/geminiArchetypeService.ts';
 import { ArchetypeAnalysisResult } from '../types.ts';
 import { X, Map, Loader2, Send, Sparkles } from 'lucide-react';
+import { useStore } from '../store.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 
 interface ArchetypeJourneyProps {
     onExit: () => void;
 }
 
 const ArchetypeJourney: React.FC<ArchetypeJourneyProps> = ({ onExit }) => {
+    const { goBackToAgentRoom } = useStore();
     const [narrative, setNarrative] = useState('');
     const [feedback, setFeedback] = useState<ArchetypeAnalysisResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +27,8 @@ const ArchetypeJourney: React.FC<ArchetypeJourneyProps> = ({ onExit }) => {
             const analysisResult = await analyzeNarrative(narrative);
             setFeedback(analysisResult);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido durante a análise.');
+            const friendlyError = getFriendlyErrorMessage(err, 'Ocorreu um erro desconhecido durante a análise.');
+            setError(friendlyError);
         } finally {
             setIsLoading(false);
         }
@@ -44,9 +48,18 @@ const ArchetypeJourney: React.FC<ArchetypeJourneyProps> = ({ onExit }) => {
                     <Map className="w-8 h-8 text-purple-400" />
                     <h1 className="text-xl font-bold text-gray-200">Jornada do Arquétipo</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Archetype Journey">
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Archetype Journey">
+                        <X size={24} />
+                    </button>
+                </div>
             </header>
             <main className="flex-1 overflow-y-auto p-6 no-scrollbar">
                 {isLoading && (

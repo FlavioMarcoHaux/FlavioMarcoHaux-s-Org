@@ -17,7 +17,7 @@ const activities: { id: Activity; name: string; icon: React.ElementType }[] = [
 ];
 
 const Scheduler: React.FC<SchedulerProps> = ({ onExit }) => {
-    const { addSchedule, schedules } = useStore();
+    const { addSchedule, schedules, goBackToAgentRoom } = useStore();
     const [selectedActivity, setSelectedActivity] = useState<Activity>('meditation');
     
     const now = new Date();
@@ -64,9 +64,18 @@ const Scheduler: React.FC<SchedulerProps> = ({ onExit }) => {
                     <CalendarClock className="w-8 h-8 text-yellow-300" />
                     <h1 className="text-xl font-bold text-gray-200">Agendar Sessão de Voz</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Scheduler">
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors" aria-label="Exit Scheduler">
+                        <X size={24} />
+                    </button>
+                </div>
             </header>
             <main className="flex-1 flex flex-col items-center justify-start text-center p-6 overflow-y-auto no-scrollbar">
                 <div className="max-w-md w-full">

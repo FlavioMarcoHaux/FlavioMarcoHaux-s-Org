@@ -8,6 +8,7 @@ interface BeliefResignifierProps {
 }
 
 const BeliefResignifier: React.FC<BeliefResignifierProps> = ({ onExit }) => {
+    const { goBackToAgentRoom } = useStore();
     const chatHistory = useStore(state => state.chatHistories[AgentId.EMOTIONAL_FINANCE] || []);
     const [belief, setBelief] = useState('');
     const [reframed, setReframed] = useState('');
@@ -25,7 +26,16 @@ const BeliefResignifier: React.FC<BeliefResignifierProps> = ({ onExit }) => {
                     <MessageSquareHeart className="w-8 h-8 text-pink-400" />
                     <h1 className="text-xl font-bold text-gray-200">Ressignificador de Crenças</h1>
                 </div>
-                <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={goBackToAgentRoom}
+                        className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400"
+                        aria-label="Voltar para o Mentor"
+                    >
+                        Voltar
+                    </button>
+                    <button onClick={onExit} className="text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
+                </div>
             </header>
             <main className="flex-1 flex flex-col items-center justify-center text-center p-6">
                  <p className="text-lg text-gray-400 mb-6 max-w-2xl">

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Meditation, Message, AgentId } from '../types.ts';
-import { generateMeditationScript } from '../services/geminiScriptService.ts';
+import { Meditation, Message, AgentId, ToolStates } from '../types.ts';
+import { generateMeditationScript, summarizeChatForMeditation } from '../services/geminiScriptService.ts';
 import { generateImage } from '../services/geminiImagenService.ts'; // Updated to use Imagen service
 import { generateSpeech } from '../services/geminiTtsService.ts';
 import { decode, decodeAudioData } from '../utils/audioUtils.ts';
+import { getFriendlyErrorMessage } from '../utils/errorUtils.ts';
 import MeditationGuideChat from './MeditationGuideChat.tsx';
 import MeditationPreview from './MeditationPreview.tsx';
 import { useStore } from '../store.ts';
@@ -16,7 +17,18 @@ interface GuidedMeditationProps {
 type MeditationState = 'config' | 'generating' | 'preview' | 'playing' | 'error';
 
 const GuidedMeditation: React.FC<GuidedMeditationProps> = ({ onExit }) => {
-    const chatHistory = useStore(state => state.chatHistories[AgentId.COHERENCE]);
+    const { chatHistories, lastAgentContext, toolStates, goBackToAgentRoom } = useStore(state => ({
+        chatHistories: state.chatHistories,
+        lastAgentContext: state.lastAgentContext,
+        toolStates: state.toolStates,
+        goBackToAgentRoom: state.goBackToAgentRoom,
+    }));
+    const agentIdForContext = lastAgentContext ?? AgentId.COHERENCE;
+    const chatHistory = chatHistories[agentIdForContext];
+
+    const [initialPrompt, setInitialPrompt] = useState('');
+    const [isSummarizing, setIsSummarizing] = useState(true);
+
     const [state, setState] = useState<MeditationState>('config');
     const [meditation, setMeditation] = useState<Meditation | null>(null);
     const [backgroundImage, setBackgroundImage] = useState<string>('');
@@ -27,6 +39,27 @@ const GuidedMeditation: React.FC<GuidedMeditationProps> = ({ onExit }) => {
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+
+    useEffect(() => {
+        const generateSummary = async () => {
+            if (chatHistory && chatHistory.length > 1) {
+                try {
+                    const summary = await summarizeChatForMeditation(chatHistory, toolStates.doshaResult);
+                    setInitialPrompt(summary);
+                } catch (e) {
+                    console.error("Failed to summarize chat:", e);
+                    setInitialPrompt(''); // Fallback
+                } finally {
+                    setIsSummarizing(false);
+                }
+            } else {
+                setIsSummarizing(false);
+                setInitialPrompt('');
+            }
+        };
+        generateSummary();
+    }, [chatHistory, toolStates.doshaResult]);
+
 
     useEffect(() => {
         return () => {
@@ -47,8 +80,8 @@ const GuidedMeditation: React.FC<GuidedMeditationProps> = ({ onExit }) => {
             setBackgroundImage(image);
             setState('preview');
         } catch (err) {
-            console.error(err);
-            setError(err instanceof Error ? err.message : "Failed to create meditation.");
+            const friendlyError = getFriendlyErrorMessage(err, "Falha ao criar a meditação.");
+            setError(friendlyError);
             setState('error');
         }
     }, [chatHistory]);
@@ -81,8 +114,8 @@ const GuidedMeditation: React.FC<GuidedMeditationProps> = ({ onExit }) => {
             setIsPlaying(true);
             setCurrentPhraseIndex(0);
         } catch (err) {
-             console.error(err);
-             setError(err instanceof Error ? err.message : "Failed to generate audio.");
+             const friendlyError = getFriendlyErrorMessage(err, "Falha ao gerar o áudio da meditação.");
+             setError(friendlyError);
              setState('error');
         }
     };
@@ -143,7 +176,7 @@ const GuidedMeditation: React.FC<GuidedMeditationProps> = ({ onExit }) => {
     const renderContent = () => {
         switch (state) {
             case 'config':
-                return <MeditationGuideChat onCreate={handleCreateMeditation} onExit={onExit} />;
+                return <MeditationGuideChat onCreate={handleCreateMeditation} onExit={onExit} onBack={goBackToAgentRoom} initialPrompt={initialPrompt} isSummarizing={isSummarizing} />;
             case 'generating':
                 if (!meditation) {
                     return (
@@ -155,7 +188,7 @@ const GuidedMeditation: React.FC<GuidedMeditationProps> = ({ onExit }) => {
                 }
             case 'preview':
                 if (meditation) {
-                    return <MeditationPreview meditation={meditation} backgroundImage={backgroundImage} onStart={handleStartMeditation} onGoBack={handleReset} isLoading={state === 'generating'} />;
+                    return <MeditationPreview meditation={meditation} backgroundImage={backgroundImage} onStart={handleStartMeditation} onGoBack={handleReset} onBack={goBackToAgentRoom} onExit={onExit} isLoading={state === 'generating'} />;
                 }
                 return null;
             case 'playing':
@@ -168,7 +201,14 @@ const GuidedMeditation: React.FC<GuidedMeditationProps> = ({ onExit }) => {
                      <div className="relative h-full w-full flex flex-col p-6">
                          <img src={backgroundImage} alt="Background" className="absolute inset-0 w-full h-full object-cover -z-10 opacity-20" />
                          <div className="absolute inset-0 bg-black/60 -z-10" />
-                         <header className="flex items-center justify-end">
+                         <header className="flex items-center justify-end gap-4">
+                             <button
+                                onClick={goBackToAgentRoom}
+                                className="text-gray-300 hover:text-white transition-colors text-sm font-semibold py-1 px-3 rounded-md border border-gray-600 hover:border-gray-400 bg-black/20"
+                                aria-label="Voltar para o Mentor"
+                            >
+                                Voltar
+                            </button>
                              <button onClick={onExit} className="bg-gray-700/50 hover:bg-gray-600/50 text-white p-2 rounded-full transition-colors"><X size={24} /></button>
                          </header>
                          <main className="flex-1 flex flex-col items-center justify-center text-center">

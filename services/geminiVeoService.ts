@@ -44,12 +44,7 @@ export const generateVideo = async (prompt: string): Promise<string> => {
 
     } catch (error) {
         console.error("Error generating video with Veo:", error);
-        
-        if (error instanceof Error && error.message.includes("Requested entity was not found.")) {
-             throw new Error("API key not found or invalid. Please select a valid API key.");
-        }
-        
-        throw new Error("Failed to generate video using the Veo API.");
+        throw error;
     }
 };
 
